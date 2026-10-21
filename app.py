@@ -4,20 +4,24 @@ import streamlit as st
 import pandas as pd
 # Importa a classe do classificador de Regressão Logística para o treinamento
 from sklearn.linear_model import LogisticRegression
+# Importa a biblioteca Plotly Express para gerar gráficos interativos de dispersão
+import plotly.express as px
+# Importa a biblioteca Plotly Graph Objects para criar o gráfico de gauge personalizado
+import plotly.graph_objects as go
 # Importa o módulo os para verificação de existência física do arquivo de dados
 import os
 
 # Define o layout da aplicação Streamlit ocupando toda a largura útil da tela
 st.set_page_config(layout='wide')
 # Configura o título principal visível na interface do usuário do painel
-st.title('Previsão de Inadimplência de Clientes')
+st.title('Painel de Previsão de Inadimplência de Clientes')
 
 # Define a função de carga e treino do modelo com cache de recurso do Streamlit
 @st.cache_resource
 def treinar_modelo():
     # Especifica o caminho exato do arquivo de dados que contém o histórico
     caminho = 'inadimplencia-clientes.xlsx'
-    # Caso o arquivo não exista localmente (no GitHub), você deve fazer o upload dele no seu repositório do GitHub
+    # Caso o arquivo não exista localmente (no GitHub), retorna objetos nulos
     if not os.path.exists(caminho):
         # Retorna objetos nulos caso o arquivo não seja encontrado
         return None, None, None
@@ -66,7 +70,23 @@ if modelo is None:
     # Interrompe o processamento do Streamlit na página corrente
     st.stop()
 
-# Divide o layout da tela única em duas colunas equivalentes de mesma largura
+# Calcula métricas resumidas para os cartões informativos do painel
+total_clientes = len(dados)
+# Calcula o valor total de empréstimos concedidos na base histórica
+total_emprestado = dados['Valor do Empréstimo (R$)'].sum()
+# Calcula o percentual médio de inadimplência real do histórico
+taxa_inadimplencia_real = (dados['Situação'].value_counts(normalize=True).get('Inadimplente', 0.0)) * 100
+
+# Cria três colunas horizontais de igual tamanho para exibir os cartões de métrica no topo
+met_col1, met_col2, met_col3 = st.columns(3)
+# Exibe o cartão da métrica do número total de clientes analisados na coluna 1
+met_col1.metric(label='Total de Clientes no Histórico', value=f'{total_clientes}')
+# Exibe o cartão do volume financeiro total sob risco ou emprestado na coluna 2
+met_col2.metric(label='Volume Total Emprestado', value=f'R$ {total_emprestado:,.2f}')
+# Exibe a taxa de inadimplência real calculada para a base de dados na coluna 3
+met_col3.metric(label='Taxa de Inadimplência Histórica', value=f'{taxa_inadimplencia_real:.1f}%')
+
+# Divide a tela principal verticalmente em duas grandes colunas
 col1, col2 = st.columns(2)
 
 # Bloco de renderização e coleta de dados na coluna da esquerda
@@ -121,5 +141,41 @@ with col2:
     else:
         # Mostra indicador verde certificando bom perfil adimplente estimado
         st.success('Situação prevista: Adimplente')
-    # Apresenta de forma descritiva a probabilidade calculada da classe de risco
-    st.metric(label='Probabilidade de Inadimplência', value=f'{probabilidade_inadimplente:.2f}%')
+
+    # Configura e constrói o gráfico de Gauge interativo do Plotly
+    fig_gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=probabilidade_inadimplente,
+        domain={'x': [0, 1], 'y': [0, 1]},
+        title={'text': "Risco de Inadimplência (%)"},
+        gauge={
+            'axis': {'range': [0, 100]},
+            'bar': {'color': "darkblue"},
+            'steps': [
+                {'range': [0, 30], 'color': "lightgreen"},
+                {'range': [30, 70], 'color': "yellow"},
+                {'range': [70, 100], 'color': "salmon"}
+            ]
+        }
+    ))
+    # Renderiza o gráfico de gauge criado na interface do Streamlit
+    st.plotly_chart(fig_gauge, use_container_width=True)
+
+# Cria uma linha horizontal para separar as seções de modelagem e exploração visual de dados
+st.markdown('---')
+# Adiciona o título da seção de análise exploratória interativa no final da página
+st.subheader('Análise de Dispersão Histórica dos Clientes')
+
+# Cria o gráfico interativo de dispersão correlacionando as principais variáveis numéricas de concessão
+fig_disp = px.scatter(
+    dados,
+    x='Renda Mensal (R$)',
+    y='Valor do Empréstimo (R$)',
+    color='Situação',
+    title='Relação Renda vs Empréstimo por Status Histórico',
+    labels={'Renda Mensal (R$)': 'Renda Mensal (R$)', 'Valor do Empréstimo (R$)': 'Valor do Empréstimo (R$)'},
+    color_discrete_map={'Adimplente': 'green', 'Inadimplente': 'red'},
+    hover_data=['Idade', 'Escolaridade', 'Atrasos Anteriores']
+)
+# Apresenta o gráfico de dispersão completo na largura da tela
+st.plotly_chart(fig_disp, use_container_width=True)
