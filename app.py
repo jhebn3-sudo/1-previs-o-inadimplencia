@@ -17,7 +17,7 @@ st.title('Previsão de Inadimplência de Clientes')
 def treinar_modelo():
     # Especifica o caminho exato do arquivo de dados que contém o histórico
     caminho = 'inadimplencia-clientes.xlsx'
-    # Verifica se o arquivo do histórico está presente no diretório corrente
+    # Caso o arquivo não exista localmente (no GitHub), você deve fazer o upload dele no seu repositório do GitHub
     if not os.path.exists(caminho):
         # Retorna objetos nulos caso o arquivo não seja encontrado
         return None, None, None
@@ -57,10 +57,12 @@ def treinar_modelo():
 # Executa o carregamento e treinamento do modelo de previsão
 modelo, dados, dados_num = treinar_modelo()
 
-# Verifica a ausência do arquivo e apresenta erro impeditivo no Streamlit
+# Verifica a ausência do arquivo e apresenta erro explicativo no Streamlit
 if modelo is None:
-    # Apresenta notificação de alerta em vermelho sobre arquivo de dados ausente
-    st.error('Erro: O arquivo "inadimplencia-clientes.xlsx" não foi localizado.')
+    # Apresenta notificação de alerta em vermelho sobre arquivo de dados ausente e instruções
+    st.error('Erro: O arquivo "inadimplencia-clientes.xlsx" não foi localizado no seu repositório do GitHub.')
+    # Adiciona instrução para auxiliar no deploy do Streamlit Cloud
+    st.info('Por favor, faça o upload do arquivo "inadimplencia-clientes.xlsx" para a pasta raiz do seu repositório no GitHub (onde está o seu app.py).')
     # Interrompe o processamento do Streamlit na página corrente
     st.stop()
 
